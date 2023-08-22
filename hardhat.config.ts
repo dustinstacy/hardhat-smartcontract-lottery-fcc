@@ -12,24 +12,25 @@ const config: HardhatUserConfig = {
     solidity: '0.8.19',
     defaultNetwork: 'hardhat',
     networks: {
+        hardhat: {
+            chainId: 31337,
+        },
+        localhost: {
+            url: 'http://127.0.0.1:8545/',
+            chainId: 31337,
+        },
         sepolia: {
             url: SEPOLIA_RPC_URL,
             accounts: [PRIVATE_KEY as string],
             chainId: 11155111,
         },
-        fuji: {
-            url: 'https://api.avax-test.network/ext/bc/C/rpc',
-            chainId: 43113,
-        },
-        localhost: {
-            url: 'http://127.0.0.1:8545/',
-            // accounts: Thanks Hardhat!
-            chainId: 31337,
-        },
     },
     namedAccounts: {
         deployer: {
             default: 0,
+        },
+        entrant: {
+            default: 1,
         },
     },
     etherscan: {
