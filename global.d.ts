@@ -15,7 +15,7 @@ interface networkConfigItem {
     gasLane?: string
     subscriptionId?: string
     callbackGasLimit?: string
-    interval?: string
+    interval?: number
     blockConfirmations?: number
 }
 

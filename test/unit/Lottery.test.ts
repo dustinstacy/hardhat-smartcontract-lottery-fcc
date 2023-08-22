@@ -1,12 +1,10 @@
 import { deployments, ethers, network } from 'hardhat'
 import { devChains, networkConfig } from '../../helper-hardhat-config'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import {
-    Lottery,
-    VRFCoordinatorV2Interface__factory,
-    VRFCoordinatorV2Mock,
-} from '../../typechain-types'
+import { Lottery, VRFCoordinatorV2Mock } from '../../typechain-types'
 import { expect } from 'chai'
+import { BytesLike } from 'ethers'
+import { log } from 'console'
 
 !devChains.includes(network.name)
     ? describe.skip
@@ -17,6 +15,8 @@ import { expect } from 'chai'
           let lotteryAddress: string
           let vrfCoordinatorV2Mock: VRFCoordinatorV2Mock
           let vrfCoordinatorV2MockAddress: string
+          let entranceFee: bigint | undefined
+          let interval: number
 
           beforeEach(async () => {
               const accounts = await ethers.getSigners()
@@ -30,6 +30,8 @@ import { expect } from 'chai'
                   'VRFCoordinatorV2Mock',
                   vrfCoordinatorV2MockAddress
               )
+              entranceFee = networkConfig[network.name].entranceFee
+              interval = networkConfig[network.name].interval as number
           })
 
           describe('constructor', async () => {
@@ -68,7 +70,7 @@ import { expect } from 'chai'
 
               it('initializes the last time stamp correctly', async () => {
                   const lastTimestamp = await lottery.getLastTimeStamp()
-                  expect(lastTimestamp).to.equal(
+                  expect(lastTimestamp + BigInt(1)).to.equal(
                       (await ethers.provider.getBlock('latest'))!.timestamp
                   )
               })
@@ -79,10 +81,34 @@ import { expect } from 'chai'
               })
           })
 
-          describe('enterLottery', () => {
-              it('Reverts the transaction if there is not enough ETH', () => {})
-              it('Adds entrant to entrants array', () => {})
-              it('Emits a new Lottery Entered event for each new entrant', () => {})
+          describe('enterLottery', async () => {
+              it('Reverts the transaction if there is not enough ETH', async () => {
+                  await expect(lottery.enterLottery()).to.be.revertedWithCustomError(
+                      lottery,
+                      'Lottery__NotEnoughEthSent'
+                  )
+              })
+              it('Denies entry when lottery is in a Closed state', async () => {
+                  await lottery.enterLottery({ value: entranceFee })
+                  await network.provider.send('evm_increaseTime', [interval + 1])
+                  await network.provider.request({ method: 'evm_mine', params: [] })
+                  const emptyBytes = ethers.ZeroHash
+                  await lottery.performUpkeep(emptyBytes)
+                  await expect(
+                      lottery.enterLottery({ value: entranceFee })
+                  ).to.be.revertedWithCustomError(lottery, 'Lottery__Closed')
+              })
+              it('Adds entrant to entrants array upon entry!', async () => {
+                  await lottery.enterLottery({ value: entranceFee })
+                  const entrantFromContract = await lottery.getEntrant(0)
+                  expect(entrantFromContract).to.equal(deployer.address)
+              })
+              it('Emits a new Lottery Entered event for each new entrant', async () => {
+                  await expect(lottery.enterLottery({ value: entranceFee })).to.emit(
+                      lottery,
+                      'LotteryEntered'
+                  )
+              })
           })
 
           describe('checkUpkeep', () => {})

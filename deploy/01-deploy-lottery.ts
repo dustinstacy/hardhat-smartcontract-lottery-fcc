@@ -3,6 +3,7 @@ import { devChains, networkConfig } from '../helper-hardhat-config'
 import { DeployInterface } from '../global'
 import { ethers } from 'hardhat'
 import verify from '../utils/verify'
+import { VRFCoordinatorV2Mock } from '../typechain-types'
 
 const VRF_SUB_FUND_AMOUNT = ethers.parseEther('2')
 
@@ -15,12 +16,13 @@ const deployLottery: DeployFunction = async ({
     const { deployer } = await getNamedAccounts()
 
     let vrfCoordinatorV2Address: string | undefined
+    let vrfCoordinatorV2Mock: VRFCoordinatorV2Mock
     let subscriptionId: string | undefined
 
     if (devChains.includes(network.name)) {
         const vrfCoordinatorV2MockDeployment = await get('VRFCoordinatorV2Mock')
         vrfCoordinatorV2Address = vrfCoordinatorV2MockDeployment.address
-        const vrfCoordinatorV2Mock = await ethers.getContractAt(
+        vrfCoordinatorV2Mock = await ethers.getContractAt(
             'VRFCoordinatorV2Mock',
             vrfCoordinatorV2Address
         )
@@ -48,6 +50,10 @@ const deployLottery: DeployFunction = async ({
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 1,
     })
+
+    if (devChains.includes(network.name)) {
+        await vrfCoordinatorV2Mock!.addConsumer(subscriptionId as string, lottery.address)
+    }
 
     if (!devChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
         log('Verifying...')
