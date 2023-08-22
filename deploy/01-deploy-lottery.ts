@@ -14,8 +14,8 @@ const deployLottery: DeployFunction = async ({
     const { deploy, log, get } = deployments
     const { deployer } = await getNamedAccounts()
 
-    let vrfCoordinatorV2Address: string
-    let subscriptionId: string
+    let vrfCoordinatorV2Address: string | undefined
+    let subscriptionId: string | undefined
 
     if (devChains.includes(network.name)) {
         const vrfCoordinatorV2MockDeployment = await get('VRFCoordinatorV2Mock')
@@ -27,13 +27,11 @@ const deployLottery: DeployFunction = async ({
         const transactionResponse = await vrfCoordinatorV2Mock.createSubscription()
         const transactionReceipt = await transactionResponse.wait()
         subscriptionId = transactionReceipt!.logs[0].topics[1]
-        await vrfCoordinatorV2Mock.fundSubscription(subscriptionId as string, VRF_SUB_FUND_AMOUNT)
+        await vrfCoordinatorV2Mock.fundSubscription(subscriptionId, VRF_SUB_FUND_AMOUNT)
     } else {
-        vrfCoordinatorV2Address = networkConfig[network.name]['vrfCoordinatorV2'] as string
-        subscriptionId = networkConfig[network.name]['subscriptionId'] as string
+        vrfCoordinatorV2Address = networkConfig[network.name]['vrfCoordinatorV2']
+        subscriptionId = networkConfig[network.name]['subscriptionId']
     }
-
-    console.log(networkConfig[network.name])
 
     const args: any[] = [
         vrfCoordinatorV2Address,
@@ -43,8 +41,6 @@ const deployLottery: DeployFunction = async ({
         networkConfig[network.name]['entranceFee'],
         networkConfig[network.name]['interval'],
     ]
-
-    console.log(args)
 
     const lottery = await deploy('Lottery', {
         from: deployer,
