@@ -138,8 +138,32 @@ contract Lottery is VRFConsumerBaseV2, KeeperCompatibleInterface {
 
     /* Getter Functions */
 
+    function getVRFCoordinatorV2()
+        public
+        view
+        returns (VRFCoordinatorV2Interface)
+    {
+        return i_vrfCoordinator;
+    }
+
     function getEntranceFee() public view returns (uint256) {
         return i_entranceFee;
+    }
+
+    function getInterval() public view returns (uint256) {
+        return i_interval;
+    }
+
+    function getGasLane() public view returns (bytes32) {
+        return i_gasLane;
+    }
+
+    function getCallbackGasLimit() public view returns (uint32) {
+        return i_callbackGasLimit;
+    }
+
+    function getSubscriptionId() public view returns (uint64) {
+        return i_subscriptionId;
     }
 
     function getEntrant(uint256 index) public view returns (address) {
@@ -158,7 +182,7 @@ contract Lottery is VRFConsumerBaseV2, KeeperCompatibleInterface {
         return lotteryState;
     }
 
-    function getLatestTimeStampe() public view returns (uint256) {
+    function getLastTimeStamp() public view returns (uint256) {
         return lastTimeStamp;
     }
 }
