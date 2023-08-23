@@ -3,12 +3,10 @@ import { devChains, networkConfig } from '../../helper-hardhat-config'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import { Lottery, VRFCoordinatorV2Mock } from '../../typechain-types'
 import { expect } from 'chai'
-import { BytesLike } from 'ethers'
-import { log } from 'console'
 
 !devChains.includes(network.name)
     ? describe.skip
-    : describe('Lottery', async () => {
+    : describe('Lottery', () => {
           let deployer: SignerWithAddress
           let entrant: SignerWithAddress
           let lottery: Lottery
@@ -34,7 +32,7 @@ import { log } from 'console'
               interval = networkConfig[network.name].interval as number
           })
 
-          describe('constructor', async () => {
+          describe('constructor', () => {
               it('initializes the VRFCoordinatorV2 correctly', async () => {
                   const vrfCoordinatorV2Address = await lottery.getVRFCoordinatorV2()
                   expect(vrfCoordinatorV2Address).to.equal(vrfCoordinatorV2MockAddress)
@@ -81,7 +79,7 @@ import { log } from 'console'
               })
           })
 
-          describe('enterLottery', async () => {
+          describe('enterLottery', () => {
               it('Reverts the transaction if there is not enough ETH', async () => {
                   await expect(lottery.enterLottery()).to.be.revertedWithCustomError(
                       lottery,
@@ -90,10 +88,9 @@ import { log } from 'console'
               })
               it('Denies entry when lottery is in a Closed state', async () => {
                   await lottery.enterLottery({ value: entranceFee })
+                  await network.provider.send('evm_mine', [])
                   await network.provider.send('evm_increaseTime', [interval + 1])
-                  await network.provider.request({ method: 'evm_mine', params: [] })
-                  const emptyBytes = ethers.ZeroHash
-                  await lottery.performUpkeep(emptyBytes)
+                  await lottery.performUpkeep('0x')
                   await expect(
                       lottery.enterLottery({ value: entranceFee })
                   ).to.be.revertedWithCustomError(lottery, 'Lottery__Closed')
@@ -111,6 +108,38 @@ import { log } from 'console'
               })
           })
 
-          describe('checkUpkeep', () => {})
-          describe('performUpKeep', () => {})
+          describe('checkUpkeep', () => {
+              it('Returns false if the lottery is closed', async () => {
+                  await lottery.enterLottery({ value: entranceFee })
+                  await network.provider.send('evm_increaseTime', [interval + 1])
+                  await network.provider.send('evm_mine', [])
+                  await lottery.performUpkeep('0x')
+                  const lotteryState = await lottery.getLotteryState()
+                  const { upkeepNeeded } = await lottery.checkUpkeep.staticCall('0x')
+                  expect(lotteryState).to.equal(1)
+                  expect(upkeepNeeded).to.be.false
+              })
+              it('Returns false if not enough time has passed', async () => {
+                  await lottery.enterLottery({ value: entranceFee })
+                  await network.provider.send('evm_increaseTime', [interval - 5])
+                  await network.provider.send('evm_mine', [])
+                  const { upkeepNeeded } = await lottery.checkUpkeep.staticCall('0x')
+                  expect(upkeepNeeded).to.be.false
+              })
+              it('Return false if there are no entrants', async () => {
+                  await network.provider.send('evm_increaseTime', [interval + 1])
+                  await network.provider.send('evm_mine', [])
+                  const { upkeepNeeded } = await lottery.checkUpkeep.staticCall('0x')
+                  expect(upkeepNeeded).to.be.false
+              })
+              it('Returns true if is open, enough time has passed, and has entrants', async () => {
+                  await lottery.enterLottery({ value: entranceFee })
+                  await network.provider.send('evm_increaseTime', [interval + 1])
+                  await network.provider.send('evm_mine', [])
+                  const { upkeepNeeded } = await lottery.checkUpkeep.staticCall('0x')
+                  expect(upkeepNeeded).to.be.true
+              })
+          })
+
+          describe('performUpKeep', async () => {})
       })
