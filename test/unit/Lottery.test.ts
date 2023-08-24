@@ -3,13 +3,15 @@ import { devChains, networkConfig } from '../../helper-hardhat-config'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import { Lottery, VRFCoordinatorV2Mock } from '../../typechain-types'
 import { expect } from 'chai'
+import { TypedContractEvent } from '../../typechain-types/common'
 
 !devChains.includes(network.name)
     ? describe.skip
     : describe('Lottery', () => {
-          let deployer: SignerWithAddress
+          let accounts: SignerWithAddress[]
           let entrant: SignerWithAddress
           let lottery: Lottery
+          let lotteryContract: Lottery
           let lotteryAddress: string
           let vrfCoordinatorV2Mock: VRFCoordinatorV2Mock
           let vrfCoordinatorV2MockAddress: string
@@ -17,12 +19,12 @@ import { expect } from 'chai'
           let interval: number
 
           beforeEach(async () => {
-              const accounts = await ethers.getSigners()
-              deployer = accounts[0]
+              accounts = await ethers.getSigners()
               entrant = accounts[1]
               await deployments.fixture()
               lotteryAddress = (await deployments.get('Lottery')).address
-              lottery = await ethers.getContractAt('Lottery', lotteryAddress)
+              lotteryContract = await ethers.getContractAt('Lottery', lotteryAddress)
+              lottery = lotteryContract.connect(entrant)
               vrfCoordinatorV2MockAddress = (await deployments.get('VRFCoordinatorV2Mock')).address
               vrfCoordinatorV2Mock = await ethers.getContractAt(
                   'VRFCoordinatorV2Mock',
@@ -67,7 +69,7 @@ import { expect } from 'chai'
               })
 
               it('initializes the last time stamp correctly', async () => {
-                  const lastTimestamp = await lottery.getLastTimeStamp()
+                  const lastTimestamp = await lottery.getLatestTimeStamp()
                   expect(lastTimestamp + BigInt(1)).to.equal(
                       (await ethers.provider.getBlock('latest'))!.timestamp
                   )
@@ -100,7 +102,7 @@ import { expect } from 'chai'
               it('Adds entrant to entrants array upon entry!', async () => {
                   await lottery.enterLottery({ value: entranceFee })
                   const entrantFromContract = await lottery.getEntrant(0)
-                  expect(entrantFromContract).to.equal(deployer.address)
+                  expect(entrantFromContract).to.equal(entrant.address)
               })
 
               it('Emits a new Lottery Entered event for each new entrant', async () => {
@@ -190,6 +192,62 @@ import { expect } from 'chai'
                   await network.provider.send('evm_increaseTime', [interval + 1])
                   await network.provider.send('evm_mine', [])
               })
-              it('Is only called after performUpkeep', async () => {})
+
+              it('It can only be called after performUpkeep', async () => {
+                  await expect(
+                      vrfCoordinatorV2Mock.fulfillRandomWords(0, lotteryAddress)
+                  ).to.be.rejectedWith('nonexistent request')
+                  await expect(
+                      vrfCoordinatorV2Mock.fulfillRandomWords(1, lotteryAddress)
+                  ).to.be.rejectedWith('nonexistent request')
+              })
+
+              it('picks a winner, resets the lottery, and sends ETH', async () => {
+                  const winnerPickedEvent: TypedContractEvent = lottery.filters['WinnerPicked']
+                  const additionalEntrants = 3
+                  const startingAccountIndex = 2
+                  for (
+                      let i = startingAccountIndex;
+                      i < startingAccountIndex + additionalEntrants;
+                      i++
+                  ) {
+                      lottery = lotteryContract.connect(accounts[i])
+                      await lottery.enterLottery({ value: entranceFee })
+                      console.log('ran')
+                  }
+                  const startingTimeStamp = await lottery.getLatestTimeStamp()
+                  const entrants = await lottery.getEntrants()
+
+                  await new Promise(async (resolve, reject) => {
+                      lottery.once(winnerPickedEvent, async (winner) => {
+                          console.log('Found the event!', 'Winner:', winner)
+                          try {
+                              const recentWinner = await lottery.getRecentWinner()
+                              const winnerBalance = await ethers.provider.getBalance(recentWinner)
+                              const numEntrants = await lottery.getNumEntrants()
+                              const lotteryState = await lottery.getLotteryState()
+                              const endingTimeStamp = await lottery.getLatestTimeStamp()
+                              expect(numEntrants).to.equal(0)
+                              expect(lotteryState).to.equal(0)
+                              expect(endingTimeStamp).to.be.greaterThan(startingTimeStamp)
+                              expect(winnerBalance).to.equal(
+                                  startingBalance + entranceFee! * BigInt(entrants.length)
+                              )
+                              resolve(null)
+                          } catch (e) {
+                              reject(e)
+                          }
+                      })
+                      const tx = await lottery.performUpkeep('0x')
+                      const txReceipt = await tx.wait(1)
+                      const startingBalance = await ethers.provider.getBalance(
+                          accounts[2].getAddress()
+                      )
+                      await vrfCoordinatorV2Mock.fulfillRandomWords(
+                          txReceipt!.logs[1].topics[1],
+                          lotteryAddress
+                      )
+                  })
+              })
           })
       })

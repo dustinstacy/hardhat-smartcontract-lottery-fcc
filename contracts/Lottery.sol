@@ -170,6 +170,10 @@ contract Lottery is VRFConsumerBaseV2, KeeperCompatibleInterface {
         return entrants[index];
     }
 
+    function getEntrants() public view returns (address payable[] memory) {
+        return entrants;
+    }
+
     function getNumEntrants() public view returns (uint256) {
         return entrants.length;
     }
@@ -182,7 +186,7 @@ contract Lottery is VRFConsumerBaseV2, KeeperCompatibleInterface {
         return lotteryState;
     }
 
-    function getLastTimeStamp() public view returns (uint256) {
+    function getLatestTimeStamp() public view returns (uint256) {
         return lastTimeStamp;
     }
 }
