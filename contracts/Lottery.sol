@@ -88,6 +88,7 @@ contract Lottery is VRFConsumerBaseV2, KeeperCompatibleInterface {
         bytes memory /* checkData */
     )
         public
+        view
         override
         returns (bool upkeepNeeded, bytes memory /*performData*/)
     {
@@ -96,6 +97,7 @@ contract Lottery is VRFConsumerBaseV2, KeeperCompatibleInterface {
         bool hasBalance = address(this).balance > 0;
         bool hasPlayers = (entrants.length > 0);
         upkeepNeeded = (isOpen && timePassed && hasBalance && hasPlayers);
+        return (upkeepNeeded, "0x");
     }
 
     function performUpkeep(bytes calldata /*performData*/) external override {
