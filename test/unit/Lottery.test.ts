@@ -200,6 +200,7 @@ import { TypedContractEvent } from '../../typechain-types/common'
                   await expect(
                       vrfCoordinatorV2Mock.fulfillRandomWords(1, lotteryAddress)
                   ).to.be.rejectedWith('nonexistent request')
+                  expect(lottery).to.be.revertedWithCustomError(lottery, 'Lottery__TransferFailed')
               })
 
               it('picks a winner, resets the lottery, and sends ETH', async () => {
@@ -213,7 +214,6 @@ import { TypedContractEvent } from '../../typechain-types/common'
                   ) {
                       lottery = lotteryContract.connect(accounts[i])
                       await lottery.enterLottery({ value: entranceFee })
-                      console.log('ran')
                   }
                   const startingTimeStamp = await lottery.getLatestTimeStamp()
                   const entrants = await lottery.getEntrants()
@@ -232,6 +232,10 @@ import { TypedContractEvent } from '../../typechain-types/common'
                               expect(endingTimeStamp).to.be.greaterThan(startingTimeStamp)
                               expect(winnerBalance).to.equal(
                                   startingBalance + entranceFee! * BigInt(entrants.length)
+                              )
+                              expect(lottery).to.not.be.revertedWithCustomError(
+                                  lottery,
+                                  'Lottery__TransferFailed'
                               )
                               resolve(null)
                           } catch (e) {
