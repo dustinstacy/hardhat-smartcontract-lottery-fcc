@@ -1,7 +1,7 @@
-import { deployments, ethers, network } from 'hardhat'
+import { ethers, network } from 'hardhat'
 import { devChains, networkConfig } from '../../helper-hardhat-config'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { Lottery, VRFCoordinatorV2Mock } from '../../typechain-types'
+import { Lottery } from '../../typechain-types'
 import { expect } from 'chai'
 import { TypedContractEvent } from '../../typechain-types/common'
 
@@ -10,14 +10,14 @@ devChains.includes(network.name)
     : describe('lottery', () => {
           let accounts: SignerWithAddress[]
           let lottery: Lottery
-          let lotteryAddress: string
           let entranceFee: bigint | undefined
 
           beforeEach(async () => {
               accounts = await ethers.getSigners()
-              await deployments.fixture()
-              lotteryAddress = (await deployments.get('Lottery')).address
-              lottery = await ethers.getContractAt('Lottery', lotteryAddress)
+              lottery = await ethers.getContractAt(
+                  'Lottery',
+                  networkConfig[network.name].contractAddress as string
+              )
               entranceFee = networkConfig[network.name].entranceFee
           })
 
