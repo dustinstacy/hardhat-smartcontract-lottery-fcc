@@ -127,7 +127,7 @@ import { TypedContractEvent } from '../../typechain-types/common'
 
               it('Returns false if not enough time has passed', async () => {
                   await lottery.enterLottery({ value: entranceFee })
-                  await network.provider.send('evm_increaseTime', [interval - 5])
+                  await network.provider.send('evm_increaseTime', [interval - 2])
                   await network.provider.send('evm_mine', [])
                   const { upkeepNeeded } = await lottery.checkUpkeep.staticCall('0x')
                   expect(upkeepNeeded).to.be.false
@@ -162,7 +162,7 @@ import { TypedContractEvent } from '../../typechain-types/common'
                   )
               })
 
-              it('Should set the lottery state to Closed', async () => {
+              it('Should set the lottery state to Calculating', async () => {
                   await lottery.enterLottery({ value: entranceFee })
                   await lottery.performUpkeep('0x')
                   const lotteryState = await lottery.getLotteryState()
